@@ -50,6 +50,17 @@
 <body>
     <div id="background-animation"></div>
     <button class="theme-toggle-btn" id="theme-toggle" title="Téma váltás">🌙</button>
+    <button class="theme-toggle-btn" id="settings-toggle" title="Beállítások" style="right:4rem;">⚙️</button>
+
+    <div id="settings-panel" style="display:none;position:fixed;top:4rem;right:1rem;z-index:9998;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.25rem;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 0.75rem;font-size:1rem;">⚙️ Beállítások</h3>
+        <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:0.35rem;">API szerver URL</label>
+        <input type="text" id="api-url-input" placeholder="http://your-server:8765"
+            style="width:100%;padding:0.5rem 0.75rem;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.9rem;box-sizing:border-box;">
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:0.4rem 0 0.75rem;">Hagyd üresen ha a tracker ugyanazon a szerveren fut.</p>
+        <button id="api-url-save" style="width:100%;padding:0.5rem;border-radius:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:0.9rem;">Mentés</button>
+        <div id="api-url-status" style="font-size:0.8rem;margin-top:0.5rem;text-align:center;"></div>
+    </div>
 
     <div class="main-wrapper">
         <div class="logo-header">

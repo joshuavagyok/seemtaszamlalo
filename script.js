@@ -29,8 +29,13 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMonthlyUI();
     });
 });
-// Dinamikus API_BASE: ha /seemta/ alatt fut, a prefix megmarad
-const API_BASE = window.location.pathname.startsWith('/seemta') ? '/seemta' : '';
+// API_BASE — localStorage-ból vagy auto-detect
+function getApiBase() {
+    const saved = localStorage.getItem('seemta-api-url');
+    if (saved) return saved.replace(/\/$/, '');
+    return window.location.pathname.startsWith('/seemta') ? '/seemta' : '';
+}
+let API_BASE = getApiBase();
 
 // =====================================================
 // HÁTTÉR ANIMÁCIÓ
@@ -110,6 +115,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // Téma váltó
     const savedTheme = localStorage.getItem('seemta-theme') || 'dark';
     applyTheme(savedTheme);
+
+    // Settings panel
+    const settingsBtn   = document.getElementById('settings-toggle');
+    const settingsPanel = document.getElementById('settings-panel');
+    const apiUrlInput   = document.getElementById('api-url-input');
+    const apiUrlSave    = document.getElementById('api-url-save');
+    const apiUrlStatus  = document.getElementById('api-url-status');
+
+    apiUrlInput.value = localStorage.getItem('seemta-api-url') || '';
+
+    settingsBtn.addEventListener('click', () => {
+        settingsPanel.style.display = settingsPanel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    apiUrlSave.addEventListener('click', async () => {
+        const val = apiUrlInput.value.trim().replace(/\/$/, '');
+        if (val) {
+            localStorage.setItem('seemta-api-url', val);
+        } else {
+            localStorage.removeItem('seemta-api-url');
+        }
+        API_BASE = getApiBase();
+        apiUrlStatus.textContent = '✅ Mentve! Újratöltés...';
+        apiUrlStatus.style.color = '#34d399';
+        setTimeout(() => location.reload(), 1000);
+    });
+
     document.getElementById('theme-toggle').addEventListener('click', () => {
         const current = document.documentElement.getAttribute('data-theme') || 'dark';
         applyTheme(current === 'dark' ? 'light' : 'dark');

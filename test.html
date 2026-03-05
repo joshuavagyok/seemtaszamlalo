@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Duplikáció Teszt</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #e0e0e0; padding: 2rem; }
+        h2 { color: rgb(60,183,129); }
+        .btn {
+            background: rgb(60,183,129); color: #000; border: none;
+            padding: 0.7rem 1.5rem; border-radius: 8px; cursor: pointer;
+            font-size: 1rem; font-weight: 700; margin: 0.3rem;
+        }
+        .btn:hover { background: rgb(50,153,109); }
+        .btn.red { background: #ef4444; color: #fff; }
+        .log { background: #111; border-radius: 8px; padding: 1rem; margin-top: 1rem; min-height: 200px; white-space: pre-wrap; font-size: 0.85rem; line-height: 1.6; }
+        .ok   { color: rgb(60,183,129); }
+        .err  { color: #ef4444; }
+        .info { color: #a0a0a0; }
+        .warn { color: #f59e0b; }
+        .stat { background: #2c2c2c; border-radius: 8px; padding: 1rem; margin-top: 1rem; font-size: 1.1rem; }
+        .stat span { color: rgb(60,183,129); font-size: 1.5rem; font-weight: 700; }
+    </style>
+</head>
+<body>
+<h2>🧪 Duplikáció Teszt — AdminDuty Tracker</h2>
+<p style="color:#a0a0a0">Ez az oldal szimulálja a feltöltési logikát. Kattints sorban a gombokra és nézd az eredményt.</p>
+
+<div class="stat">
+    Szerveren tárolt duty perc: <span id="server-minutes">—</span> perc
+    &nbsp;&nbsp;|&nbsp;&nbsp; lastTimestamp: <span id="server-ts" style="font-size:1rem;color:#a0a0a0">—</span>
+</div>
+
+<div style="margin-top:1rem">
+    <button class="btn" onclick="runTest(1)">1️⃣ Első feltöltés (21:00–22:00)</button>
+    <button class="btn" onclick="runTest(2)">2️⃣ Ugyanaz újra (duplikáció teszt)</button>
+    <button class="btn" onclick="runTest(3)">3️⃣ Kibővített log (+22:05–22:10)</button>
+    <button class="btn" onclick="runTest(4)">4️⃣ Kibővített újra (duplikáció teszt)</button>
+    <button class="btn red" onclick="resetTest()">🗑 Reset</button>
+</div>
+
+<div class="log" id="log">Kattints egy gombra a teszteléshez...\n</div>
+
+<script>
+const KEY     = "2026_03_duptest";
+const API     = "http://192.168.1.119:8765";
+
+const LOG_V1 = [
+    "[2026-03-01 21:00:00] [Output] : [SeeMTA - AdminDuty]: Joshua adminszolgálatba lépett.",
+    "[2026-03-01 22:00:00] [Output] : [SeeMTA - AdminDuty]: Joshua kilépett az adminszolgálatból.",
+];
+const LOG_V2 = [...LOG_V1,
+    "[2026-03-01 22:05:00] [Output] : [SeeMTA - AdminDuty]: Joshua adminszolgálatba lépett.",
+    "[2026-03-01 22:10:00] [Output] : [SeeMTA - AdminDuty]: Joshua kilépett az adminszolgálatból.",
+];
+
+const TESTS = [
+    { label: "Első feltöltés (21:00–22:00 = 60 perc)",         log: LOG_V1, expected: 60,  totalExpected: 60  },
+    { label: "Ugyanaz újra — duplikáció teszt (várt: 0 perc)", log: LOG_V1, expected: 0,   totalExpected: 60  },
+    { label: "Kibővített log (+22:05–22:10 = 5 perc)",         log: LOG_V2, expected: 5,   totalExpected: 65  },
+    { label: "Kibővített újra — duplikáció teszt (várt: 0)",   log: LOG_V2, expected: 0,   totalExpected: 65  },
+];
+
+function log(msg, cls='') {
+    const el = document.getElementById('log');
+    el.innerHTML += `<span class="${cls}">${msg}</span>\n`;
+    el.scrollTop = el.scrollHeight;
+}
+
+function parseDateTime(str) {
+    const m = str.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/);
+    if (m) return new Date(m[1].replace(' ','T'));
+    return null;
+}
+
+async function apiLoad() {
+    const res = await fetch(`${API}/api/data`);
+    return await res.json();
+}
+
+async function apiSave(key, duty, sessions, today, lastTS) {
+    const res = await fetch(`${API}/api/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, dutyMinutes: duty, sessionCount: sessions, freezeCount: 0, todayMinutes: today, lastTimestamp: lastTS })
+    });
+    return await res.json();
+}
+
+async function apiDelete(key) {
+    await fetch(`${API}/api/delete/${key}`, { method: 'DELETE' });
+}
+
+async function updateStats() {
+    const data = await apiLoad();
+    const d = data[KEY] || {};
+    document.getElementById('server-minutes').textContent = Math.round(d.dutyMinutes || 0);
+    document.getElementById('server-ts').textContent = d.lastTimestamp || '—';
+}
+
+async function simulate(logLines) {
+    // Friss adat a szerverről
+    const allData   = await apiLoad();
+    const srvData   = allData[KEY] || {};
+    const lastTSStr = srvData.lastTimestamp || null;
+    const cutoff    = lastTSStr ? new Date(lastTSStr.replace(' ','T')) : null;
+
+    log(`  lastTimestamp: ${lastTSStr || 'nincs'}`, 'info');
+
+    // Intervallumok kiszámolása
+    const intervals = [];
+    let dutyStart   = null;
+    const admin     = "Joshua";
+
+    for (let i = 0; i < logLines.length; i++) {
+        const line = logLines[i];
+        const dt   = parseDateTime(line);
+        if (!dt) continue;
+
+        const isStart = line.includes(`${admin} adminszolgálatba lépett`);
+        const isEnd   = line.includes(`${admin} kilépett az adminszolgálatból`);
+        const isCrash = line.includes('SeeMTA logger started');
+
+        if (isStart) {
+            if (dutyStart) intervals.push({ s: dutyStart, e: dt });
+            dutyStart = dt;
+        } else if (isEnd && dutyStart) {
+            intervals.push({ s: dutyStart, e: dt });
+            dutyStart = null;
+        } else if (isCrash && dutyStart) {
+            // előző valid dátum
+            let prev = null;
+            for (let j = i-1; j >= 0; j--) { const d = parseDateTime(logLines[j]); if (d) { prev = d; break; } }
+            if (prev && prev > dutyStart) intervals.push({ s: dutyStart, e: prev });
+            dutyStart = null;
+        }
+    }
+    if (dutyStart) {
+        let last = null;
+        for (let j = logLines.length-1; j >= 0; j--) { const d = parseDateTime(logLines[j]); if (d) { last = d; break; } }
+        if (last && last > dutyStart) intervals.push({ s: dutyStart, e: last });
+    }
+
+    // Cutoff szűrés
+    const newIntervals = intervals
+        .filter(iv => !cutoff || iv.e > cutoff)
+        .map(iv => ({ s: cutoff && iv.s < cutoff ? cutoff : iv.s, e: iv.e }));
+
+    const newMins   = newIntervals.reduce((sum, iv) => sum + (iv.e - iv.s) / 60000, 0);
+    const latestEnd = newIntervals.reduce((max, iv) => iv.e > max ? iv.e : max, new Date(0));
+
+    log(`  Logban talált intervallumok: ${intervals.map(iv => `${iv.s.toTimeString().slice(0,5)}–${iv.e.toTimeString().slice(0,5)}`).join(', ') || 'nincs'}`, 'info');
+    log(`  Cutoff utáni (új): ${newIntervals.map(iv => `${iv.s.toTimeString().slice(0,5)}–${iv.e.toTimeString().slice(0,5)}`).join(', ') || 'nincs'}`, 'info');
+    log(`  Új percek: ${Math.round(newMins)}`, newMins > 0 ? 'ok' : 'info');
+
+    if (newMins > 0) {
+        const lastTSNew = latestEnd.toISOString().replace('T',' ').slice(0,19);
+        const res = await apiSave(KEY, newMins, newIntervals.length, newMins, lastTSNew);
+        log(`  ✅ Mentve → szerver összesen: ${Math.round(res.data.dutyMinutes)} perc`, 'ok');
+    } else {
+        log(`  ℹ️ Nincs új esemény → szerver nem változik`, 'info');
+    }
+
+    return newMins;
+}
+
+async function runTest(n) {
+    const t = TESTS[n-1];
+    log(`\n${'─'.repeat(50)}`, 'info');
+    log(`TEST ${n}: ${t.label}`, 'warn');
+
+    const got = await simulate(t.log);
+    const ok  = Math.abs(got - t.expected) < 0.1;
+
+    const data = await apiLoad();
+    const total = Math.round((data[KEY] || {}).dutyMinutes || 0);
+    const totalOk = total === t.totalExpected;
+
+    log(ok ? `  ✅ Új percek OK (${Math.round(got)} = várt ${t.expected})` : `  ❌ HIBA! Kapott: ${Math.round(got)}, várt: ${t.expected}`, ok ? 'ok' : 'err');
+    log(totalOk ? `  ✅ Szerver összesen OK (${total} = várt ${t.totalExpected})` : `  ❌ SZERVER HIBA! ${total} != ${t.totalExpected}`, totalOk ? 'ok' : 'err');
+
+    await updateStats();
+}
+
+async function resetTest() {
+    await apiDelete(KEY);
+    log('\n🗑 Reset — szerver törölve', 'warn');
+    await updateStats();
+    document.getElementById('log').innerHTML = 'Reset kész. Kezdd újra az 1-es gombbal.\n';
+}
+
+updateStats();
+</script>
+</body>
+</html>
