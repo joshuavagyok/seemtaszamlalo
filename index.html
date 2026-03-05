@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdminDuty számláló</title>
+    <link rel="icon" type="image/png" href="files/logo.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AdminDuty">
+    <link rel="apple-touch-icon" href="files/logo.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 3 oszlopos elrendezés */
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1.5rem 1rem 3rem;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1400px;
+            align-items: start;
+        }
+
+        @media (max-width: 900px) {
+            .three-col {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 1200px) and (min-width: 901px) {
+            .three-col {
+                grid-template-columns: 1fr 1fr;
+            }
+            .col-stats {
+                grid-column: span 2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="background-animation"></div>
+    <button class="theme-toggle-btn" id="theme-toggle" title="Téma váltás">🌙</button>
+
+    <div class="main-wrapper">
+        <div class="logo-header">
+            <img src="files/logo.png" alt="Fő logó">
+            
+        </div>
+
+        <div class="three-col">
+
+            <!-- ── BAL: Report feltöltés ── -->
+            <div class="container">
+                <div class="monthly-header">
+                    <span>📋 Report feltöltés</span>
+                </div>
+                <div class="form-group">
+                    <label>Log fájlok</label>
+                    <div class="file-upload-container">
+                        <input type="file" id="reportFiles" multiple accept=".log,.txt">
+                        <label for="reportFiles" class="file-upload-button">Válaszd ki a fájlokat</label>
+                        <span id="report-file-count" class="file-count-text">Nincs kiválasztott fájl</span>
+                    </div>
+                </div>
+                <button id="reportButton">
+                    <span>Report feldolgozás</span>
+                    <div class="spinner"></div>
+                </button>
+                <div id="report-results"></div>
+            </div>
+
+            <!-- ── KÖZÉP: AdminDuty ── -->
+            <div class="container">
+                <div class="form-group">
+                    <label for="adminName">Adminnév</label>
+                    <input type="text" id="adminName" placeholder="Adminneved" value="Joshua" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Log fájlok</label>
+                    <div class="file-upload-container">
+                        <input type="file" id="logFiles" multiple accept=".log,.txt">
+                        <label for="logFiles" class="file-upload-button">Válaszd ki a fájlokat</label>
+                        <span id="file-count" class="file-count-text">Nincs kiválasztott fájl</span>
+                    </div>
+                    <span id="adminduty-label" class="file-count-text" style="color:#ef4444; margin-top:.3rem; display:block;"></span>
+                </div>
+
+                <!-- Célok beállítása -->
+                <div class="goals-row">
+                    <div class="goal-input">
+                        <label for="dutyGoal">Duty cél (perc)</label>
+                        <input type="number" id="dutyGoal" value="3500" min="100" max="9999" step="100">
+                    </div>
+                    <div class="goal-input">
+                        <label for="offDutyLimit">Off-duty limit (perc)</label>
+                        <input type="number" id="offDutyLimit" value="500" min="0" max="9999" step="50">
+                    </div>
+                </div>
+
+                <button id="processButton">
+                    <span>AdminDuty feldolgozás</span>
+                    <div class="spinner"></div>
+                </button>
+
+                <div class="offduty-manual">
+                    <div class="offduty-manual-row">
+                        <div class="goal-input">
+                            <label for="offdutyFrom">Off-duty tól</label>
+                            <input type="time" id="offdutyFrom" step="60">
+                        </div>
+                        <div class="goal-input">
+                            <label for="offdutyTo">Off-duty ig</label>
+                            <input type="time" id="offdutyTo" step="60">
+                        </div>
+                        <button id="addOffDutyBtn">+ Hozzáadás</button>
+                    </div>
+                    <div id="offduty-manual-status" class="offduty-manual-status"></div>
+                </div>
+
+                <div id="results"></div>
+            </div>
+
+            <!-- ── JOBB: Statisztikák ── -->
+            <div class="container col-stats" id="monthly-container">
+                <div class="monthly-header">
+                    <span id="monthly-title">Havi összesítő</span>
+                    <select id="month-selector"></select>
+                    <span id="monthly-badge" class="monthly-badge"></span>
+                </div>
+
+                <!-- Streak + Best day -->
+                <div class="streak-row">
+                    <div class="streak-item">
+                        <span class="streak-icon">🔥</span>
+                        <span class="streak-value" id="streak-value">0</span>
+                        <span class="streak-label">napos streak</span>
+                    </div>
+                    <div class="streak-item">
+                        <span class="streak-icon">🏆</span>
+                        <span class="streak-value" id="best-day-value">0</span>
+                        <span class="streak-label">legjobb nap (perc)</span>
+                    </div>
+                </div>
+
+                <div class="monthly-stats">
+                    <div class="mstat">
+                        <span class="mstat-label">Összes perc</span>
+                        <span class="mstat-value" id="m-total-minutes">0</span>
+                    </div>
+                    <div class="mstat">
+                        <span class="mstat-label">Összes óra</span>
+                        <span class="mstat-value" id="m-total-hours">0</span>
+                    </div>
+                    <div class="mstat">
+                        <span class="mstat-label">Munkamenetek</span>
+                        <span class="mstat-value" id="m-sessions">0</span>
+                    </div>
+                    <div class="mstat">
+                        <span class="mstat-label">📋 Reportok</span>
+                        <span class="mstat-value" id="m-reports">0 db</span>
+                    </div>
+                    <div class="mstat">
+                        <span class="mstat-label">Heti átlag</span>
+                        <span class="mstat-value" id="m-weekly-avg">0</span>
+                    </div>
+                    <div class="mstat">
+                        <span class="mstat-label">Report/óra</span>
+                        <span class="mstat-value" id="m-report-rate">—</span>
+                    </div>
+                </div>
+
+                <!-- Off-duty sáv -->
+                <!-- Off-duty progress -->
+                <div class="prog-row">
+                    <div class="prog-label-row">
+                        <span>🎮 Off-duty: <span id="offduty-done">0</span> / <span id="offduty-limit-label">500</span> perc</span>
+                        <span id="offduty-pct">0%</span>
+                    </div>
+                    <div class="prog-track">
+                        <div class="prog-bar offduty-bar" id="offduty-bar" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <!-- Admin duty progress -->
+                <div class="prog-row">
+                    <div class="prog-label-row">
+                        <span>🛡️ Duty cél: <span id="duty-goal-label">3500</span> perc</span>
+                        <span id="prog-pct">0%</span>
+                    </div>
+                    <div class="prog-track">
+                        <div class="prog-bar" id="prog-bar" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <!-- Napi info -->
+                <div class="daily-row">
+                    <div class="daily-item">
+                        <span class="daily-label">Napi kvóta</span>
+                        <span class="daily-value" id="daily-quota">— perc</span>
+                    </div>
+                    <div class="daily-item">
+                        <span class="daily-label">Ma teljesítve</span>
+                        <span class="daily-value accent" id="daily-done">0 perc</span>
+                    </div>
+                    <div class="daily-item">
+                        <span class="daily-label">Ma még kell</span>
+                        <span class="daily-value warn" id="daily-missing">—</span>
+                    </div>
+                </div>
+
+                <!-- Heti grafikon -->
+                <div class="chart-section">
+                    <div class="chart-title">Utolsó 14 nap</div>
+                    <div class="bar-chart" id="bar-chart"></div>
+                </div>
+
+                <div class="deadline-row" id="deadline-row">
+                    <div class="deadline-item">
+                        <span class="daily-label">Hátralévő napok</span>
+                        <span class="daily-value" id="deadline-days">—</span>
+                    </div>
+                    <div class="deadline-item">
+                        <span class="daily-label">Hiányzó perc</span>
+                        <span class="daily-value warn" id="deadline-missing">—</span>
+                    </div>
+                    <div class="deadline-item">
+                        <span class="daily-label">Napi szükséges</span>
+                        <span class="daily-value warn" id="deadline-daily">—</span>
+                    </div>
+                </div>
+
+                <button class="reset-btn" id="btn-reset">⚠️ Hónap törlése</button>
+            </div>
+
+        </div><!-- /three-col -->
+    </div>
+
+    <script src="script.js?v=2"></script>
+</body>
+</html>
