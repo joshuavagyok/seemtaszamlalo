@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', () => {
 function getApiBase() {
     const saved = localStorage.getItem('seemta-api-url');
     if (saved) return saved.replace(/\/$/, '');
+    // GitHub Pages-en (github.io) soha ne próbáljon API-t elérni
+    if (window.location.hostname.includes('github.io')) return '';
     return window.location.pathname.startsWith('/seemta') ? '/seemta' : '';
 }
 let API_BASE = getApiBase();
