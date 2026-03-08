@@ -113,7 +113,7 @@
                         <label for="dutyGoal">Duty cél (perc)</label>
                         <input type="number" id="dutyGoal" value="3500" min="100" max="9999" step="100">
                     </div>
-                    <div class="goal-input">
+                    <div class="goal-input" style="display:none">
                         <label for="offDutyLimit">Off-duty limit (perc)</label>
                         <input type="number" id="offDutyLimit" value="500" min="0" max="9999" step="50">
                     </div>
@@ -124,7 +124,7 @@
                     <div class="spinner"></div>
                 </button>
 
-                <div class="offduty-manual">
+                <div class="offduty-manual" style="display:none">
                     <div class="offduty-manual-row">
                         <div class="goal-input">
                             <label for="offdutyFrom">Off-duty tól</label>
@@ -191,9 +191,8 @@
                     </div>
                 </div>
 
-                <!-- Off-duty sáv -->
-                <!-- Off-duty progress -->
-                <div class="prog-row">
+                <!-- Off-duty sáv — elrejtve -->
+                <div class="prog-row" style="display:none">
                     <div class="prog-label-row">
                         <span>🎮 Off-duty: <span id="offduty-done">0</span> / <span id="offduty-limit-label">500</span> perc</span>
                         <span id="offduty-pct">0%</span>
@@ -217,7 +216,7 @@
                 <!-- Napi info -->
                 <div class="daily-row">
                     <div class="daily-item">
-                        <span class="daily-label">Napi kvóta</span>
+                        <span class="daily-label">Napi kötelező</span>
                         <span class="daily-value" id="daily-quota">— perc</span>
                     </div>
                     <div class="daily-item">
