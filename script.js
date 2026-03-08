@@ -295,7 +295,22 @@ async function processLogs() {
     const dayEntries = {}; // {YYYY-MM-DD: ms} — napi bontás az új intervallumokból
 
     for (const file of files) {
-        const text  = await file.text();
+        let text;
+        try {
+            text = await file.text();
+        } catch(e) {
+            try {
+                text = await new Promise((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onload = () => resolve(fr.result);
+                    fr.onerror = () => reject(fr.error);
+                    fr.readAsText(file, 'utf-8');
+                });
+            } catch(e2) {
+                alert(`Nem sikerült olvasni a fájlt: ${file.name}\n\nPróbáld más böngészővel (Chrome/Firefox).`);
+                continue;
+            }
+        }
         const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
         let dutyIntervals = [];
         let dutyStart     = null;
@@ -497,7 +512,22 @@ async function processReports() {
         // (ha februári logot töltesz fel, 2026_02 kulcs alá megy, nem 2026_03)
         const fileTexts = [];
         for (const file of files) {
-            fileTexts.push({ name: file.name, text: await file.text() });
+            let text;
+            try {
+                text = await file.text();
+            } catch(e) {
+                try {
+                    text = await new Promise((resolve, reject) => {
+                        const fr = new FileReader();
+                        fr.onload = () => resolve(fr.result);
+                        fr.onerror = () => reject(fr.error);
+                        fr.readAsText(file, 'utf-8');
+                    });
+                } catch(e2) {
+                    continue;
+                }
+            }
+            fileTexts.push({ name: file.name, text });
         }
 
         // Csoportosítjuk hónap szerint
