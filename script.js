@@ -634,7 +634,21 @@ async function processReports() {
 // =====================================================
 let allMonthData = {};
 
+// localStorage kulcs prefix (offline mód)
+const LS_PREFIX = 'seemta_data_';
+
 async function apiLoadAll() {
+    if (!API_BASE) {
+        // Offline mód — localStorage-ból olvas
+        const result = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(LS_PREFIX)) {
+                try { result[k.slice(LS_PREFIX.length)] = JSON.parse(localStorage.getItem(k)); } catch {}
+            }
+        }
+        return result;
+    }
     try {
         const res = await fetch(`${API_BASE}/api/data`);
         return await res.json();
@@ -642,6 +656,13 @@ async function apiLoadAll() {
 }
 
 async function apiSaveReports(key, reportCount, lastReportTimestamp) {
+    if (!API_BASE) {
+        const existing = JSON.parse(localStorage.getItem(LS_PREFIX + key) || '{}');
+        existing.reportCount = reportCount;
+        existing.lastReportTimestamp = lastReportTimestamp;
+        localStorage.setItem(LS_PREFIX + key, JSON.stringify(existing));
+        return existing;
+    }
     const res = await fetch(`${API_BASE}/api/save`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -653,6 +674,12 @@ async function apiSaveReports(key, reportCount, lastReportTimestamp) {
 }
 
 async function apiSave(key, dutyMinutes, sessionCount, freezeCount, todayMinutes, lastTimestamp, dayEntries = {}, offDutyMinutes = 0) {
+    if (!API_BASE) {
+        // Offline mód — localStorage-ba ment
+        const data = { key, dutyMinutes, sessionCount, freezeCount, todayMinutes, lastTimestamp, dayEntries, offDutyMinutes };
+        localStorage.setItem(LS_PREFIX + key, JSON.stringify(data));
+        return data;
+    }
     const res = await fetch(`${API_BASE}/api/save`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -670,6 +697,10 @@ function toLocalDateStr(d) {
 }
 
 async function apiDelete(key) {
+    if (!API_BASE) {
+        localStorage.removeItem(LS_PREFIX + key);
+        return;
+    }
     await fetch(`${API_BASE}/api/delete/${key}`, { method: 'DELETE' });
 }
 
