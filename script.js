@@ -233,8 +233,12 @@ function updateFileList() {
 // LOG FELDOLGOZÁS (eredeti logika)
 // =====================================================
 function parseDateTime(str) {
-    const match = str.match(/\[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})]/);
-    if (match) return new Date(`${match[1]}T${match[2]}`); // lokális időként parse-ol minden böngészőben
+    // MTA log formátum: [2026/03/01 10:00:00] (perjeles)
+    const matchSlash = str.match(/\[(\d{4})\/(\d{2})\/(\d{2}) (\d{2}:\d{2}:\d{2})\]/);
+    if (matchSlash) return new Date(`${matchSlash[1]}-${matchSlash[2]}-${matchSlash[3]}T${matchSlash[4]}`);
+    // Alternatív formátum: [2026-03-01 10:00:00] (kötőjeles)
+    const matchDash = str.match(/\[(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})\]/);
+    if (matchDash) return new Date(`${matchDash[1]}T${matchDash[2]}`);
     return null;
 }
 
