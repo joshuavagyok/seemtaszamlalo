@@ -377,15 +377,9 @@ async function processLogs() {
             }
         }
 
-        // Csak a cutoff utáni intervallumokat számoljuk
-        const newIntervals = dutyIntervals.filter(iv => !cutoff || iv.end > cutoff).map(iv => ({
-            start: cutoff && iv.start < cutoff ? cutoff : iv.start,
-            end:   iv.end
-        }));
+        allFileResults.push({ name: file.name, intervals: dutyIntervals, newIntervals: dutyIntervals });
 
-        allFileResults.push({ name: file.name, intervals: dutyIntervals, newIntervals });
-
-        for (const iv of newIntervals) {
+        for (const iv of dutyIntervals) {
             const ms = iv.end - iv.start;
 
             // Melyik hónapba tartozik ez az intervallum? (a START dátuma alapján)
