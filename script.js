@@ -287,18 +287,12 @@ async function processLogs() {
     let grandTotal = 0;
     const allFileResults = [];
 
-    const key        = getCurrentMonthKey();
     allMonthData     = await apiLoadAll();
-    const serverData = allMonthData[key] || {};
-    const lastTS     = serverData.lastTimestamp || null;
-    const cutoff     = lastTS ? new Date(lastTS) : null;
 
-    let newDutyMs    = 0;
-    let newSessions  = 0;
-    let todayMs      = 0;
-    let latestDate   = null;
+    // Hónap szerint csoportosított adatok: { '2025_01': { newDutyMs, newSessions, todayMs, latestDate, dayEntries } }
+    const byMonthData = {};
+
     const todayStr   = toLocalDateStr(new Date());
-    const dayEntries = {}; // {YYYY-MM-DD: ms} — napi bontás az új intervallumokból
 
     for (const file of files) {
         let text;
@@ -393,24 +387,42 @@ async function processLogs() {
 
         for (const iv of newIntervals) {
             const ms = iv.end - iv.start;
-            newDutyMs   += ms;
-            newSessions += 1;
-            if (!latestDate || iv.end > latestDate) latestDate = iv.end;
+
+            // Melyik hónapba tartozik ez az intervallum? (a START dátuma alapján)
+            const ivMonthKey = `${iv.start.getFullYear()}_${String(iv.start.getMonth()+1).padStart(2,'0')}`;
+
+            if (!byMonthData[ivMonthKey]) {
+                const serverData = allMonthData[ivMonthKey] || {};
+                const lastTS = serverData.lastTimestamp || null;
+                byMonthData[ivMonthKey] = {
+                    cutoff: lastTS ? new Date(lastTS) : null,
+                    newDutyMs: 0,
+                    newSessions: 0,
+                    todayMs: 0,
+                    latestDate: null,
+                    dayEntries: {}
+                };
+            }
+            const mData = byMonthData[ivMonthKey];
+
+            // Cutoff szűrés per hónap
+            if (mData.cutoff && iv.end <= mData.cutoff) continue;
+            const ivStart = mData.cutoff && iv.start < mData.cutoff ? mData.cutoff : iv.start;
+
+            mData.newDutyMs   += iv.end - ivStart;
+            mData.newSessions += 1;
+            if (!mData.latestDate || iv.end > mData.latestDate) mData.latestDate = iv.end;
 
             // Napi bontás — éjfélen átnyúló session esetén napokra bontjuk
-            let cursor = new Date(iv.start);
+            let cursor = new Date(ivStart);
             while (cursor < iv.end) {
-                // A következő éjfél (lokális)
                 const nextMidnight = new Date(cursor);
                 nextMidnight.setHours(24, 0, 0, 0);
-
                 const chunkEnd = nextMidnight < iv.end ? nextMidnight : iv.end;
                 const chunkMs  = chunkEnd - cursor;
                 const dayKey   = toLocalDateStr(cursor);
-
-                dayEntries[dayKey] = (dayEntries[dayKey] || 0) + chunkMs;
-                if (dayKey === todayStr) todayMs += chunkMs;
-
+                mData.dayEntries[dayKey] = (mData.dayEntries[dayKey] || 0) + chunkMs;
+                if (dayKey === todayStr) mData.todayMs += chunkMs;
                 cursor = nextMidnight;
             }
         }
@@ -474,13 +486,18 @@ async function processLogs() {
         resultsDiv.appendChild(breakdownDetails);
     }
 
-    if (newDutyMs > 0 && latestDate) {
-        const newMins      = newDutyMs / 60000;
-        const todayMins    = todayMs / 60000;
-        const lastTSStr    = latestDate.toISOString();
-        const dayMins = {};
-        for (const [d, ms] of Object.entries(dayEntries)) dayMins[d] = ms / 60000;
-        await apiSave(key, newMins, newSessions, 0, todayMins, lastTSStr, dayMins);
+    // Minden hónapot külön mentünk
+    for (const [monthKey, mData] of Object.entries(byMonthData)) {
+        if (mData.newDutyMs > 0 && mData.latestDate) {
+            const newMins   = mData.newDutyMs / 60000;
+            const todayMins = mData.todayMs / 60000;
+            const lastTSStr = mData.latestDate.toISOString();
+            const dayMins   = {};
+            for (const [d, ms] of Object.entries(mData.dayEntries)) dayMins[d] = ms / 60000;
+            await apiSave(monthKey, newMins, mData.newSessions, 0, todayMins, lastTSStr, dayMins);
+        }
+    }
+    if (Object.keys(byMonthData).length > 0) {
         await loadMonthlyStats();
     }
 
