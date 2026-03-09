@@ -675,10 +675,10 @@ async function apiLoadAll() {
 async function apiSaveReports(key, reportCount, lastReportTimestamp) {
     if (!API_BASE) {
         const existing = JSON.parse(localStorage.getItem(LS_PREFIX + key) || '{}');
-        existing.reportCount = reportCount;
+        existing.reportCount = (existing.reportCount || 0) + reportCount;
         existing.lastReportTimestamp = lastReportTimestamp;
         localStorage.setItem(LS_PREFIX + key, JSON.stringify(existing));
-        return existing;
+        return { ok: true, ...existing };
     }
     const res = await fetch(`${API_BASE}/api/save`, {
         method:  'POST',
